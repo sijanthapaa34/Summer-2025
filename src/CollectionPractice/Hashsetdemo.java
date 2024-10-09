@@ -1,3 +1,5 @@
+package CollectionPractice;
+
 import java.util.*;
 
 public class Hashsetdemo {

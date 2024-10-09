@@ -1,3 +1,5 @@
+package Exceptionhandling;
+
 public class Throwthrows {
     public static double area(double r){
         double result = Math.PI*r*r;
