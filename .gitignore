@@ -1,14 +1,18 @@
 # Ignore everything
 *
 
-# But keep these folders
-!/src/Internship/
-!/src/ServerClient/
+# But do not ignore these folders and files:
+!src/
+!src/Internship/
+!src/Internship/**
 
-# Keep gitignore itself
+!src/ServerClient/
+!src/ServerClient/**
+
+# Keep .gitignore itself
 !.gitignore
 
-# Optional: ignore compiled files
+# Ignore build/output and IDE files
 *.class
 /out/
 .idea/
