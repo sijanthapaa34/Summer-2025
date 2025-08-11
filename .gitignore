@@ -1,12 +1,15 @@
-# Ignore all source files
-src/**
+# Ignore everything
+*
 
-# Keep only Internship package
-!src/Internship/**
+# But keep these folders
+!/src/Internship/
+!/src/ServerClient/
 
-# Keep only ServerClient package
-!src/ServerClient/**
-
-# Keep other important files
-!pom.xml
+# Keep gitignore itself
 !.gitignore
+
+# Optional: ignore compiled files
+*.class
+/out/
+.idea/
+.DS_Store
