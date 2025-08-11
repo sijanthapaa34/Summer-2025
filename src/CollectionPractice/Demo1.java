@@ -12,6 +12,8 @@ class Student implements Comparable<Student>{//this is one method to sort or com
         this.name = name;
         this.age = age;
     }
+//     ps.setNull(3, java.sql.Types.DOUBLE);
+//        ps.setBoolean(4, false);
 
     @Override
     public String toString() { // generate bata lera aako

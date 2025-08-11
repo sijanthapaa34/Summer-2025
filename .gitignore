@@ -1,29 +1,12 @@
-### IntelliJ IDEA ###
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
+# Ignore all source files
+src/**
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
+# Keep only Internship package
+!src/Internship/**
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+# Keep only ServerClient package
+!src/ServerClient/**
 
-### VS Code ###
-.vscode/
-
-### Mac OS ###
-.DS_Store
+# Keep other important files
+!pom.xml
+!.gitignore
