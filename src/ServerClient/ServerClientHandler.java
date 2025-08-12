@@ -141,7 +141,9 @@ public class ServerClientHandler extends Thread {
                 }
                 for(ServerClientHandler handler : Server.clientHandlers){
                     if(handler.getUsername().equals(destination)){
-                        handler.sendMessage("[DM] " + username + ": " + message);
+                        String dmMessage = "[DM] " + username + " → " + destination + ": " + message;
+                        handler.sendMessage(dmMessage);
+                        logMessageToFile(dmMessage);
                     }
                 }
             }
@@ -212,10 +214,21 @@ public class ServerClientHandler extends Thread {
     }
 
     private void broadcastToAll(String message) {
+        String fullMessage = username + ": " + message;
+        logMessageToFile(fullMessage);
         for (ServerClientHandler handler : Server.clientHandlers) {
             if (handler != this) {
-                handler.sendMessage(username+": "+message);
+                handler.sendMessage(fullMessage);
             }
+        }
+    }
+
+    private void logMessageToFile(String message) {
+        try (FileWriter fw = new FileWriter("History.txt", true);
+             PrintWriter pw = new PrintWriter(fw)) {
+            pw.println(message);
+        } catch (IOException e) {
+            System.err.println("Error writing to log file: " + e.getMessage());
         }
     }
 }

@@ -65,8 +65,11 @@ public class Client {
 
         while (true) {
             String message = scanner.nextLine();
-            if(isLoggedIn) {
-                messageReceiver.historyMessage.add("Me: " + message);
+            if(!isLoggedIn) {
+                messageReceiver.historyMessage.add(message);
+            }
+            else if(isLoggedIn) {
+                    messageReceiver.historyMessage.add("Me: " + message);
             }
             out.println(message);
             if (message.equalsIgnoreCase("bye")) {

@@ -45,7 +45,7 @@ import java.util.List;
 
 public class Server {
     public static List<ServerClientHandler> clientHandlers = new ArrayList<>();
-    //in file java anti patterns
+    //in file
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(6666);
