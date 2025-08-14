@@ -1,70 +1,4 @@
-//package ServerClient;
-//
-//import java.io.*;
-//import java.net.Socket;
-//import java.util.ArrayList;
-//import java.util.List;
-//
-//public class ServerClientHandler extends Thread {
-//    private final Socket socket;
-//    private final String clientName;
-//    private PrintWriter out;
-//    private BufferedReader in;
-//    public static List<String> serverHistory = new ArrayList<>();
-//
-//
-//    public ServerClientHandler(Socket socket, String clientName) {
-//        this.socket = socket;
-//        this.clientName = clientName;
-//    }
-//
-//    public String getClientName() {
-//        return clientName;
-//    }
-//
-//    public void sendMessage(String message) {
-//        out.println(message);
-//    }
-//    //yo chai nagarni
-//
-//    public void run() {
-//        try {
-//            out = new PrintWriter(socket.getOutputStream(), true);
-//            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-//
-//            out.println("Welcome " + clientName + "!");
-//
-//            String input;
-//            while ((input = in.readLine()) != null) {
-//                String message = clientName + ": " + input;
-//                serverHistory.add(message);
-//            }
-//           // printMessageBox(0);
-//        } catch (IOException e) {
-//            System.out.println("Connection error with " + clientName);
-//        }
-//            try {
-//                in.close();
-//                out.close();
-//                socket.close();
-//            } catch (IOException ignored) {}
-//
-//    }
-//
-////
-////
-////
-////
-////    public void printMessageBox(int starting) {
-////        System.out.print("\033[H\033[2J");
-////        System.out.println("+------------------------------------------------+");
-////        for(int i = starting; i< serverHistory.size();i++) {
-////            System.out.println("| " +serverHistory.get(i));
-////        }
-////        System.out.println("|------------------------------------------------|");
-////    }
-//}
-//
+
 package ServerClient;
 
 import java.io.*;
@@ -74,9 +8,12 @@ public class ServerClientHandler extends Thread {
     private final Socket socket;
     private String username;
     private String password;
+    public boolean isActive = true;
     private PrintWriter out;
     private BufferedReader in;
     private boolean isLoggedIn = false;
+    StringBuilder activeMsg = new StringBuilder("Active Users: ");
+    StringBuilder inactiveMsg = new StringBuilder("Inactive Users: ");
 
     public ServerClientHandler(Socket socket) {
         this.socket = socket;
@@ -97,6 +34,7 @@ public class ServerClientHandler extends Thread {
         try {
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
             out.println("1 for Login  /2 for Signup ");
             String decision = in.readLine();
             if(decision.equals("2")){
@@ -127,11 +65,23 @@ public class ServerClientHandler extends Thread {
     }
 
     private void messageLoop() throws IOException {
+        System.out.print("\033[H\033[2J");
+        saveUser();
         String input;
         String destination = "";
         String message = "";
         while ((input = in.readLine()) != null) {
-            if(input.startsWith("@")) {
+            if (input.equalsIgnoreCase("/logout")) {
+                this.isActive = false;
+                out.println("You have logged out.");
+                saveUser();
+                Server.clientHandlers.remove(this);
+                break;
+            }
+            else if (input.equalsIgnoreCase("/users")) {
+                sendUser();
+            }
+            else if (input.startsWith("@")) {
                 for(int i = 1; i<input.length(); i++){
                     if(input.charAt(i)== ' ') {
                         destination = input.substring(1, i);
@@ -146,9 +96,28 @@ public class ServerClientHandler extends Thread {
                         logMessageToFile(dmMessage);
                     }
                 }
-            }
-            else{
+            } else {
                 broadcastToAll(input);
+            }
+        }
+    }
+
+    private void sendUser() {
+        StringBuilder activeMsg = new StringBuilder("Active Users: ");
+        StringBuilder inactiveMsg = new StringBuilder("Inactive Users: ");
+
+        for (ServerClientHandler handler : Server.clientHandlers) {
+            if (handler.isActive) {
+                activeMsg.append(handler.getUsername()).append(", ");
+            } else {
+                inactiveMsg.append(handler.getUsername()).append(", ");
+            }
+        }
+
+        for (ServerClientHandler handler : Server.clientHandlers) {
+            if (handler.isActive) {
+                handler.sendMessage(activeMsg.toString());
+                handler.sendMessage(inactiveMsg.toString());
             }
         }
     }
@@ -182,36 +151,72 @@ public class ServerClientHandler extends Thread {
     }
 
     private void signupProcess() throws IOException {
-        //for username
+        File userFile = new File("users.txt");
+        if (!userFile.exists()) {
+            userFile.getParentFile().mkdirs();
+            userFile.createNewFile();
+        }
+
         out.println("Enter Username: ");
+
         while (true) {
-            String name = in.readLine();
-            boolean exist = false;
-            for(ServerClientHandler serverClientHandler :Server.clientHandlers){
-                if(name.equals(serverClientHandler.getUsername())){
-                    out.println("Username already exist: Try another username:");
-                    exist = true;
-                    break;
+            String name = in.readLine().trim();
+
+            boolean existsInFile = false;
+            try (BufferedReader br = new BufferedReader(new FileReader(userFile))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] parts = line.split(":");
+                    if (parts.length >= 2 && parts[0].equalsIgnoreCase(name)) {
+                        existsInFile = true;
+                        break;
+                    }
                 }
             }
-            if (!exist) {
-                out.println("Enter password: ");
-                String firstPassword = in.readLine();
-                out.println("Enter the password again: ");
-                String finalPassword = in.readLine();
-                if(firstPassword.equals(finalPassword)){
-                    this.username = name;
-                    this.password = finalPassword;
-                    isLoggedIn= true;
-                    out.println("Login successful.");
-                    out.println("Welcome "+username);
-                    break;
-                }else{
-                    out.println("password does not match");
-                }
+
+            if (existsInFile) {
+                out.println("Username already exists. Try another username:");
+                continue;
             }
+
+//            boolean existsInMemory = false;
+//            for (ServerClientHandler handler : Server.clientHandlers) {
+//                if (name.equalsIgnoreCase(handler.getUsername())) {
+//                    existsInMemory = true;
+//                    break;
+//                }
+//            }
+//
+//            if (existsInMemory) {
+//                out.println("Username already exists (currently logged in). Try another username:");
+//                continue;
+//            }
+
+            out.println("Enter password: ");
+            String firstPassword = in.readLine();
+
+            out.println("Enter the password again: ");
+            String finalPassword = in.readLine();
+
+            if (!firstPassword.equals(finalPassword)) {
+                out.println("Passwords do not match. Try signing up again.");
+                continue;
+            }
+
+            try (BufferedWriter bw = new BufferedWriter(new FileWriter(userFile, true))) {
+                bw.write(name + ":" + finalPassword);
+                bw.newLine();
+            }
+
+            this.username = name;
+            this.password = finalPassword;
+            this.isLoggedIn = true;
+
+            out.println("Signup successful.");
+            break;
         }
     }
+
 
     private void broadcastToAll(String message) {
         String fullMessage = username + ": " + message;
@@ -230,5 +235,34 @@ public class ServerClientHandler extends Thread {
         } catch (IOException e) {
             System.err.println("Error writing to log file: " + e.getMessage());
         }
+    }
+
+    public  void saveUser() {
+        activeMsg = new StringBuilder("Active Users: ");
+        inactiveMsg = new StringBuilder("Inactive Users: ");
+
+        for (ServerClientHandler handler : Server.clientHandlers) {
+            if (handler.isActive) {
+                activeMsg.append(handler.getUsername()).append(", ");
+            } else {
+                inactiveMsg.append(handler.getUsername()).append(", ");
+            }
+        }
+
+        System.out.print("\033[H\033[2J");
+        System.out.println(activeMsg);
+        System.out.println(inactiveMsg);
+
+
+//        try (FileWriter fw = new FileWriter("users.txt", true)) {
+//            for(ServerClientHandler clientHandler: Server.clientHandlers)
+//            {
+//                fw.write("Username: "+clientHandler.getUsername() + " " + "Password: "+ clientHandler.getPassword() + "\n");
+//            }
+//
+//        } catch (IOException e) {
+//            System.err.println("Error saving user: " + e.getMessage());
+//        }
+
     }
 }

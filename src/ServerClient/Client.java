@@ -1,45 +1,4 @@
-//package ServerClient;
-//
-//import java.io.*;
-//import java.net.Socket;
-//import java.util.Scanner;
-//
-//public class Client {
-//    private Socket socket;
-//    private BufferedReader in;
-//    private PrintWriter out;
-//
-//    public Client() throws IOException {
-//        socket = new Socket("127.0.0.1", 6666);
-//        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-//        out = new PrintWriter(socket.getOutputStream(), true);
-//    }
-//
-//    public void start() {
-//        new MessageReceiver(in).start();
-//        Scanner scanner = new Scanner(System.in);
-//        out.println("Hello Server!");
-//        while (true) {
-//            String message = scanner.nextLine();
-//            out.println(message);//yo chai server ko ma
-//            if (message.equalsIgnoreCase("bye")) {
-//                break;
-//            }
-//        }
-//
-//        try {
-//            scanner.close();
-//            in.close();
-//            out.close();
-//            socket.close();
-//        } catch (IOException ignored) {}
-//    }
-//
-//    public static void main(String[] args) throws IOException {
-//        Client client = new Client();
-//        client.start();
-//    }
-//}
+
 package ServerClient;
 
 import java.io.*;
@@ -69,7 +28,7 @@ public class Client {
                 messageReceiver.historyMessage.add(message);
             }
             else if(isLoggedIn) {
-                    messageReceiver.historyMessage.add("Me: " + message);
+                    messageReceiver.historyMessage.add("Me:  " + message);
             }
             out.println(message);
             if (message.equalsIgnoreCase("bye")) {
