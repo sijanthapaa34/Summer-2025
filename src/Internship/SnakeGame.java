@@ -225,8 +225,3 @@ class Point {
         return this.x == x && this.y == y;
     }
 }
-// history
-//client-client
-//bug step - resolve
-//chat scroll login - username password/history for messagebox in bottom
-//

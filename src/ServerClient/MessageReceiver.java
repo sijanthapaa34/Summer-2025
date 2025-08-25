@@ -20,7 +20,7 @@ public class MessageReceiver extends Thread {
         String msg;
         try {
             while ((msg = in.readLine()) != null) {
-                if(msg.equals("Login successful.")||msg.equals("Signup successful.")){
+                if(msg.equals("Login successful.")){
                     client.setLoggedIn(true);
                 }
                 historyMessage.add(msg);

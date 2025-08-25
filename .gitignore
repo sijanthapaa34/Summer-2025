@@ -9,6 +9,9 @@
 !src/ServerClient/
 !src/ServerClient/**
 
+!src/Tictactoe/
+!src/Tictactoe/**
+
 # Keep .gitignore itself
 !.gitignore
 
