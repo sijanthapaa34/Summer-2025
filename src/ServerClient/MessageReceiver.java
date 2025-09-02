@@ -1,15 +1,11 @@
-
 package ServerClient;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class MessageReceiver extends Thread {
     private final BufferedReader in;
     private final Client client;
-    public List<String> historyMessage = new ArrayList<>();
 
     public MessageReceiver(BufferedReader in, Client client) {
         this.in = in;
@@ -17,30 +13,42 @@ public class MessageReceiver extends Thread {
     }
 
     public void run() {
-        String msg;
         try {
+            String msg;
             while ((msg = in.readLine()) != null) {
-                if(msg.equals("Login successful.")){
-                    client.setLoggedIn(true);
+                if (msg.startsWith("LOGIN_SUCCESS;")) {
+                    String[] parts = msg.split(";");
+                    if (parts.length >= 3) {
+                        this.client.setSessionId(parts[1]);
+                        this.client.setUsername(parts[2]);
+                        System.out.println("✅ Logged in as " + parts[2]);
+                    }
+                    continue;
                 }
-                historyMessage.add(msg);
-                printMessageBox();
+
+
+                renderMessage(msg);
             }
         } catch (IOException e) {
             System.out.println("Disconnected from server.");
         }
     }
 
-    private void printMessageBox() {
-        System.out.print("\033[H\033[2J");
+    private void renderMessage(String msg) {
+        System.out.print("\033[H\033[2J"); // clear screen
         System.out.println("+------------------------------------------------+");
-        for (String message : historyMessage) {
-            if (message.startsWith("Me: ")){
-                System.out.println("|       "+message);
-            }else {
-                System.out.println("| " + message);
+
+        String[] lines = msg.split("\n");
+
+        for (String line : lines) {
+            if (line.startsWith(client.getUsername() + ":")) {
+                // replace with Me:
+                System.out.println("|            Me: " + line.substring(client.getUsername().length() + 1).trim());
+            } else {
+                System.out.println("| " + line);
             }
         }
+
         System.out.println("|------------------------------------------------|");
     }
 }

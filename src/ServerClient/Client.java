@@ -1,4 +1,3 @@
-
 package ServerClient;
 
 import java.io.*;
@@ -6,76 +5,76 @@ import java.net.Socket;
 import java.util.Scanner;
 
 public class Client {
-    private Socket socket;
-    private BufferedReader in;
-    private PrintWriter out;
-    private boolean isLoggedIn = false;
+    private final String host = "127.0.0.1";
+    private final int port = 6666;
+    private String username;
+    private String sessionId = null;
+    private int messageCounter = 0;
 
-    public Client() {
-        connectToServer();
+    public String getUsername() {
+        return username;
     }
 
-    private void connectToServer() {
-        while (true) {
-            try {
-                System.out.println("Trying to connect to server...");
-                socket = new Socket("127.0.0.1", 6666);
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new PrintWriter(socket.getOutputStream(), true);
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-                System.out.println("Connected to server!");
-                break;
-            } catch (IOException e) {
-                System.out.println("Connection failed. Retrying in 3 seconds...");
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException ignored) {}
-            }
-        }
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 
     public void start() {
-        try (Scanner scanner = new Scanner(System.in);
-             BufferedReader reader = in;
-             PrintWriter writer = out) {
-
-            MessageReceiver messageReceiver = new MessageReceiver(reader, this);
-            messageReceiver.start();
-
+        try (Scanner scanner = new Scanner(System.in)) {
             while (true) {
+                System.out.print("Enter message: ");
                 String message = scanner.nextLine();
 
-                if (!isLoggedIn) {
-                    messageReceiver.historyMessage.add(message);
-                } else {
-                    messageReceiver.historyMessage.add("Me: " + message);
-                }
-
-                try {
-                    writer.println(message);
-                } catch (Exception e) {
-                    System.out.println("Lost connection. Reconnecting...");
-                    connectToServer();
-                    start();
-                    break;
-                }
-
                 if (message.equalsIgnoreCase("bye")) {
+                    System.out.println("Exiting...");
                     break;
                 }
-            }
+                messageCounter++;
 
-        } catch (IOException e) {
-            System.out.println("Error in client: " + e.getMessage());
+                String formattedMessage;
+                if (message.startsWith("/login") || message.startsWith("/signup")) {
+                    formattedMessage = message;
+                } else {
+                    if (sessionId == null) {
+                        System.out.println("You must login first!");
+                        continue;
+                    }
+                    formattedMessage = message + ";" + sessionId + ";" + messageCounter;
+                }
+
+                sendMessage(formattedMessage);
+            }
         }
     }
 
-    public void setLoggedIn(boolean status) {
-        this.isLoggedIn = status;
+    private void sendMessage(String message) {
+        try (Socket socket = new Socket(host, port);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+
+            System.out.println(message);
+            out.println(message);
+
+            MessageReceiver receiver = new MessageReceiver(in, this);
+            receiver.start();
+            receiver.join();
+
+        } catch (IOException | InterruptedException e) {
+            System.out.println("Connection failed: " + e.getMessage());
+        }
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         Client client = new Client();
         client.start();
     }
+
 }

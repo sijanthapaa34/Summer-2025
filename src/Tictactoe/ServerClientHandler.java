@@ -4,6 +4,8 @@ package Tictactoe;
 import java.io.*;
 import java.net.Socket;
 
+import static Tictactoe.Server.currentTurn;
+
 
 public class ServerClientHandler extends Thread {
     private final Socket socket;
@@ -38,7 +40,7 @@ public class ServerClientHandler extends Thread {
     }
 
     private void handleCommand(String input) {
-        if (Server.currentTurn != this) {
+        if (currentTurn != this) {
             out.println("Not your turn!");
             return;
         }
@@ -67,49 +69,56 @@ public class ServerClientHandler extends Thread {
         Server.board[row][column] = symbol;
 
         Server.broadcast("Player " + symbol + " moved at position " + numInput);
+
         Server.broadcast(Server.printBoard());
 
         if(checkWin()){
             Server.broadcast("Player " + symbol + " wins!");
+//            making the board empty after game
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
                     Server.board[i][j] = null;
                 }
             }
-            Server.currentTurn = null;
-            return;
+            currentTurn = null;
         }else{
-            if (Server.currentTurn == Server.clientHandlers.get(0)) {
-                Server.currentTurn = Server.clientHandlers.get(1);
+//            changing the client of the game
+            if (currentTurn == Server.clientHandlers.get(0)) {
+                currentTurn = Server.clientHandlers.get(1);
             } else {
-                Server.currentTurn = Server.clientHandlers.get(0);
+                currentTurn = Server.clientHandlers.get(0);
             }
-            Server.currentTurn.sendMessage("Your turn!");
+            currentTurn.sendMessage("Your turn!");
         }
     }
 
     private boolean checkWin() {
         String s = this.symbol;
-        for(int i = 0; i<3;i++){
-            if(Server.board[i][0]!=null && Server.board[i][0].equals(s)
+        //row
+        for (int i = 0; i<3;i++){
+            if (Server.board[i][0]!=null && Server.board[i][0].equals(s)
             && Server.board[i][1]!=null && Server.board[i][1].equals(s)
             && Server.board[i][2]!=null && Server.board[i][2].equals(s)){
                 return true;
             }
         }
-        for(int j = 0; j<3;j++){
-            if(Server.board[0][j]!=null && Server.board[0][j].equals(s)
+        //column
+        for (int j = 0; j<3;j++){
+            if (Server.board[0][j]!=null && Server.board[0][j].equals(s)
             && Server.board[1][j]!=null && Server.board[1][j].equals(s)
             && Server.board[2][j]!=null && Server.board[2][j].equals(s)){
                 return true;
             }
         }
+
+        //right diagonal
         if (Server.board[0][0]!=null && Server.board[0][0].equals(s)
             && Server.board[1][1]!=null && Server.board[1][1].equals(s)
             && Server.board[2][2]!=null && Server.board[2][2].equals(s)) {
             return true;
         }
 
+        //left diagonal
         if (Server.board[0][2]!=null && Server.board[0][2].equals(s)
             && Server.board[1][1]!=null && Server.board[1][1].equals(s)
             && Server.board[2][0]!=null && Server.board[2][0].equals(s)) {

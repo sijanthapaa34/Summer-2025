@@ -22,7 +22,7 @@ public class Server {
 
         while (true) {
             Socket socket = serverSocket.accept();
-
+//            if players are already 2 in the numbers, it doesn't accept any other player
             if (clientHandlers.size() >= 2) {
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                 out.println("Server busy. Game is full.");
@@ -35,16 +35,12 @@ public class Server {
             handler.start();
 
             if (clientHandlers.size() == 2) {
+//                it assigns symbol randomly
                 assignSymbols();
             }
         }
     }
 
-//    public static synchronized void initBoard() {
-//        for (int i = 0; i < 3; i++)
-//            for (int j = 0; j < 3; j++)
-//                board[i][j] = " ";
-//    }
     private static void assignSymbols() {
         Random random = new Random();
         int first = random.nextInt(2);
@@ -70,16 +66,22 @@ public class Server {
     }
 
     public static String printBoard() {
+//        length of the shape
         int length = X_SHAPE.length;
+
         StringBuilder sb = new StringBuilder();
         sb.append("_____________________________________________");
         sb.append("\n");
+//        outer-most loop for the row
         for (int row = 0; row < 3; row++) {
+//            loop for the symbol which line to append
             for(int line = 0;line<length;line++) {
+//                iterating to each column and printing the symbol line by line
                 for (int col = 0; col < 3; col++) {
-                    String[] shape;
-                    String symbol = board[row][col];
 
+                    String[] shape;
+                    //symbol stored in the boaed
+                    String symbol = board[row][col];
                     if ("X".equals(symbol)) {
                         shape = AsciiXO.X_SHAPE;
                     } else if ("O".equals(symbol)) {
@@ -87,6 +89,7 @@ public class Server {
                     } else {
                         shape = AsciiXO.EMPTY_SHAPE;
                     }
+//                    appending the line by line for the symbol
                     sb.append(shape[line]);
                 }
                 sb.append("\n");

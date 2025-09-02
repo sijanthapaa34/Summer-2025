@@ -1,17 +1,16 @@
-
 package ServerClient;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-
+import java.nio.file.Files;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 public class ServerClientHandler extends Thread {
+
     private final Socket socket;
     private String username, password;
-    public boolean isActive = true;
     private PrintWriter out;
 
     private static Map<String, String> sessions = new HashMap<>();
@@ -22,86 +21,52 @@ public class ServerClientHandler extends Thread {
         registerCommands();
     }
 
-    public String getUsername() {
-        return username;
-    }
-
     private void registerCommands() {
-
-        commandMap.put("/signup", new Command() {
-            @Override
-            public void execute(String[] parts) throws IOException {
-                if (parts.length < 3) {
-                    out.println("400;Format: /signup;username;password");
-                    return;
-                }
-                signupProcess(parts[1], parts[2]);
+        commandMap.put("/signup", parts -> {
+            if (parts.length < 3) {
+                out.println("400;Format: /signup;username;password");
+                return;
             }
+            signupProcess(parts[1], parts[2]);
         });
 
-        commandMap.put("/login", new Command() {
-            @Override
-            public void execute(String[] parts) throws IOException {
-                if (parts.length < 3) {
-                    out.println("400;Format: /login;username;password");
-                    return;
-                }
-                loginProcess(parts[1], parts[2]);
+        commandMap.put("/login", parts -> {
+            if (parts.length < 3) {
+                out.println("400;Format: /login;username;password");
+                return;
             }
+            loginProcess(parts[1], parts[2]);
         });
 
-        commandMap.put("/users", new Command() {
-            @Override
-            public void execute(String[] parts) {
-                sendUser();
+        commandMap.put("/message", parts -> {
+            if (parts.length < 4) {
+                out.println("400;Format: /message;sessionId;receiver;message");
+                return;
             }
+            sendDirectMessage(parts[1], parts[2], parts[3]);
         });
 
-        commandMap.put("/message", new Command() {
-            @Override
-            public void execute(String[] parts) {
-                if (parts.length < 4) {
-                    out.println("400;Format: /message;sessionId;receiver;message");
-                    return;
-                }
-                sendDirectMessage(parts[1], parts[2], parts[3]);
+        commandMap.put("/broadcast", parts -> {
+            if (parts.length < 3) {
+                out.println("400;Format: /broadcast;sessionId;message");
+                return;
             }
+            broadcastToAll(parts[1], parts[2]);
         });
 
-        commandMap.put("/broadcast", new Command() {
-            @Override
-            public void execute(String[] parts) {
-                if (parts.length < 3) {
-                    out.println("400;Format: /broadcast;sessionId;message");
-                    return;
-                }
-                broadcastToAll(parts[1], parts[2]);
+        commandMap.put("/logout", parts -> {
+            if (parts.length < 2) {
+                out.println("400;Format: /logout;sessionId");
+                return;
             }
+            logout(parts[1]);
         });
 
-        commandMap.put("/logout", new Command() {
-            @Override
-            public void execute(String[] parts) {
-                if (parts.length < 2) {
-                    out.println("400;Format: /logout;sessionId");
-                    return;
-                }
-                logout(parts[1]);
-            }
-        });
-
-        commandMap.put("/help", new Command() {
-            @Override
-            public void execute(String[] parts) {
-                out.println("200;/users;/login;/signup;/message;/logout;/broadcast;/help");
-            }
-        });
+        commandMap.put("/help", parts ->
+                out.println("200;/signup;/login;/message;/broadcast;/logout;/help"));
     }
 
-    public void sendMessage(String message) {
-        out.println(message);
-    }
-
+    @Override
     public void run() {
         try (
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -115,12 +80,13 @@ public class ServerClientHandler extends Thread {
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Error in handler: " + e.getMessage());
         }
     }
 
     private void handleCommand(String input) throws IOException {
         String[] parts = input.split(";");
+        System.out.println(Arrays.toString(parts));
         String command = parts[0];
 
         Command cmd = commandMap.get(command);
@@ -132,28 +98,12 @@ public class ServerClientHandler extends Thread {
     }
 
     private void logout(String sessionId) {
-        sessions.remove(sessionId);
-        Server.clientHandlers.remove(this);
-        out.println("200;Logged out");
-
-    }
-
-    private void broadcastToAll(String sessionId, String message) {
-        String senderUsername = sessions.get(sessionId);
-        if (senderUsername == null) {
+        if (sessions.remove(sessionId) != null) {
+            out.println("200;Logged out");
+        } else {
             out.println("401;Invalid SessionID");
-            return;
-        }
-        String fullMessage = senderUsername + ": " + message;
-        logMessageToFile(fullMessage);
-
-        for (ServerClientHandler handler : Server.clientHandlers) {
-            if (handler != this && handler.isActive) {
-                handler.sendMessage(fullMessage);
-            }
         }
     }
-
 
     private void sendDirectMessage(String sessionId, String receiver, String message) {
         String senderUsername = sessions.get(sessionId);
@@ -162,48 +112,24 @@ public class ServerClientHandler extends Thread {
             return;
         }
 
-        String fullMessage = senderUsername + " [DM]: " + message;
-
-        boolean found = false;
-        for (ServerClientHandler handler : Server.clientHandlers) {
-            if (handler.getUsername() != null && handler.getUsername().equals(receiver)) {
-                handler.sendMessage(fullMessage);
-                logMessageToFile(fullMessage);
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            out.println("404;User not found or not online");
-        }
+        logMessageToFile(senderUsername, receiver, "DIRECT", message);
     }
 
-
-    private void sendUser() {
-        StringBuilder activeMsg = new StringBuilder("Active Users: ");
-        StringBuilder inactiveMsg = new StringBuilder("Inactive Users: ");
-
-        for (ServerClientHandler handler : Server.clientHandlers) {
-            if (handler.isActive) {
-                activeMsg.append(handler.getUsername()).append(", ");
-            } else {
-                inactiveMsg.append(handler.getUsername()).append(", ");
-            }
+    private void broadcastToAll(String sessionId, String message) {
+        String senderUsername = sessions.get(sessionId);
+        if (senderUsername == null) {
+            out.println("401;Invalid SessionID");
+            return;
         }
 
-        for (ServerClientHandler handler : Server.clientHandlers) {
-            if (handler.isActive) {
-                handler.sendMessage(activeMsg.toString());
-                handler.sendMessage(inactiveMsg.toString());
-            }
-        }
+        logMessageToFile(senderUsername, "", "BROADCAST", message);
     }
+
 
     private void loginProcess(String username, String password) throws IOException {
         File userFile = new File("users.txt");
         if (!userFile.exists()) {
-            out.println("FIle not found");
+            out.println("File not found");
             return;
         }
 
@@ -220,20 +146,12 @@ public class ServerClientHandler extends Thread {
         }
 
         if (userExists) {
-            this.username = username;
-            this.password = password;
-
-            if (!Server.clientHandlers.contains(this)) {
-                Server.clientHandlers.add(this);
-            }
-
-            Random random = new Random();
-            String sessionId = String.valueOf(1000 + random.nextInt(9000));
+            String sessionId = String.valueOf(1000 + new Random().nextInt(9000));
             sessions.put(sessionId, username);
 
-            out.println("Login successful.");
-            out.println("Welcome back " + username + "!");
-            out.println("200;" + sessionId);
+            out.println(getMessageHistory(sessionId));
+            out.println("LOGIN_SUCCESS;" + sessionId + ";" + username);
+
         } else {
             out.println("Invalid username or password. Try again.");
         }
@@ -273,12 +191,47 @@ public class ServerClientHandler extends Thread {
         out.println("Signup successful.");
     }
 
-    private void logMessageToFile(String message) {
+    private void logMessageToFile(String sender, String receiver, String type, String message) {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+        String formattedMessage = String.format("%s|%s|%s|%s|%s", timestamp, type, sender,
+                receiver != null ? receiver : "", message);
+
         try (FileWriter fw = new FileWriter("History.txt", true);
              PrintWriter pw = new PrintWriter(fw)) {
-            pw.println(message);
+            pw.println(formattedMessage);
         } catch (IOException e) {
-            System.err.println("Error writing to log file: " + e.getMessage());
+            System.err.println("Error writing to History.txt: " + e.getMessage());
         }
     }
+
+    private String getMessageHistory(String sessionId) {
+        String username = sessions.get(sessionId);
+        if (username == null) return "401;Invalid SessionID";
+
+        StringBuilder sb = new StringBuilder();
+        File file = new File("History.txt");
+
+        try {
+            List<String> historyMessage = Files.readAllLines(file.toPath());
+
+            for (String message : historyMessage) {
+                String[] parts = message.split("\\|", 5);
+                if (parts.length < 5) continue;
+
+                String type = parts[1];
+                String sender = parts[2];
+                String receiver = parts[3];
+
+                if (type.equals("BROADCAST") || sender.equals(username) || receiver.equals(username)) {
+                    sb.append(message).append("\n");
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return sb.toString().trim();
+    }
+
+
 }

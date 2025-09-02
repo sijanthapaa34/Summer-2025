@@ -28,7 +28,5 @@ public class AsciiXO {
             "|             |",
             "|_____________|"
     };
-    public static void printSideBySide(String[][] shapes) {
 
-    }
 }
