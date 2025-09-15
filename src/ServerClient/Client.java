@@ -14,6 +14,7 @@ public class Client {
     private String sessionId = null;
     private int messageCounter = 0;
 
+    private volatile boolean running = true; // controls auto-sync thread
 
     public String getUsername() {
         return username;
@@ -45,9 +46,15 @@ public class Client {
                 if (formattedMessage != null) {
                     sendMessage(formattedMessage);
                 }
+
+                if (message.equalsIgnoreCase("/exit")) {
+                    running = false; // stop sync loop
+                    break;
+                }
             }
         }
     }
+
     private String formatMessage(String message) {
         if (message.startsWith("/login") || message.startsWith("/signup") || message.startsWith("/help")) {
             return message;
@@ -70,23 +77,20 @@ public class Client {
 
         if (message.startsWith("/broadcast")) {
             String[] parts = message.split(";", 2);
-            if (parts.length < 3) {
+            if (parts.length < 2) {
                 System.out.println("Format: /broadcast;message");
                 return null;
             }
             messageCounter++;
-            return "/broadcast;" + sessionId + ";" + messageCounter + ";" + parts[2];
+            return "/broadcast;" + sessionId + ";" + messageCounter + ";" + parts[1];
         }
 
         if (message.startsWith("/get_messages")) {
-            String[] parts = message.split(";");
-            if (parts.length == 1) {
-                return "/get_messages;" + sessionId;
-            } else if (parts.length == 2) {
-                return "/get_messages;" + sessionId + ";" + parts[2];
-            } else if (parts.length == 3) {
-                return "/get_messages;" + sessionId + ";" + parts[2] + ";" + parts[3];
-            }
+            return "/get_messages;" + sessionId;
+        }
+
+        if (message.equals("/sync")) {
+            return "/sync;" + sessionId;
         }
 
         if (message.equals("/logout")) {
@@ -108,13 +112,12 @@ public class Client {
             socket.connect(new InetSocketAddress(host, port), 5000);
             socket.setSoTimeout(10000); // Set read timeout
 
-            System.out.println("new connection has established");
             try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                  PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
                 out.println(message);
 
-                // Read response with timeout and content length handling
+                // Read response
                 ServerResponse response = readServerResponse(in);
                 processResponse(response);
 
@@ -131,7 +134,6 @@ public class Client {
         int expectedLines = 0;
 
         while ((line = in.readLine()) != null) {
-
             // Handle content length header
             if (line.startsWith("CONTENT_LENGTH:")) {
                 expectedLines = Integer.parseInt(line.split(":")[1]);
@@ -163,8 +165,18 @@ public class Client {
                 if (parts.length >= 3) {
                     this.setSessionId(parts[1]);
                     this.setUsername(parts[2]);
-                    System.out.println("Username: "+ getUsername() + " Session ID: "+getSessionId());
+                    System.out.println("Username: " + getUsername() + " Session ID: " + getSessionId());
+
+                    // Start auto-sync thread once after login
+                    startAutoSync();
                 }
+                continue;
+            }
+
+            // Handle logout success
+            if (line.equals("200;Logged out successfully")) {
+                System.out.println("You logged out.");
+                running = false;
                 continue;
             }
 
@@ -174,7 +186,6 @@ public class Client {
                 System.out.println("Server: " + line);
                 continue;
             }
-
 
             // Collect message history
             if (!line.isEmpty()) {
@@ -196,17 +207,44 @@ public class Client {
         }
         System.out.println("|------------------------------------------------|");
 
-        if (messages.equals("No messages yet.")) {
-            System.out.println("| No messages yet. Start chatting!              |");
-        } else {
-            String[] lines = messages.split("\n");
-            for (String line : lines) {
-//                if (line.trim().isEmpty()) continue;
-                System.out.println("| " + line);
-            }
+        String[] lines = messages.split("\n");
+        for (String line : lines) {
+            System.out.println("| " + formatMessageLine(line));
         }
 
         System.out.println("|------------------------------------------------|\n");
+    }
+
+    private String formatMessageLine(String line) {
+        if (username == null) return line;
+
+        // Replace username with "You" for better readability
+        if (line.contains("BROADCAST") && line.contains(username + ":")) {
+            return line.replace(username + ":", "You:");
+        } else if (line.contains(username + " ->")) {
+            return line.replace(username + " ->", "You ->");
+        } else if (line.contains("-> " + username)) {
+            return line.replace("-> " + username, "-> You");
+        }
+        return line;
+    }
+
+    private void startAutoSync() {
+        Thread syncThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (running) {
+                    try {
+                        if (sessionId != null) {
+                            sendMessage("/get_messages;" + sessionId);
+                        }
+                        Thread.sleep(20000);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+        });
+        syncThread.start();
     }
 
     public static void main(String[] args) {

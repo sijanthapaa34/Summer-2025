@@ -10,7 +10,6 @@ import java.util.*;
 public class ServerClientHandler extends Thread {
 
     private final Socket socket;
-    private String username, password;
     private PrintWriter out;
 
     private static Map<String, String> sessions = new HashMap<>();
@@ -284,10 +283,6 @@ public class ServerClientHandler extends Thread {
             bw.write(username + ":" + password);
             bw.newLine();
         }
-
-        this.username = username;
-        this.password = password;
-
         sendSingleResponse("200;Signup successful.");
     }
 
